@@ -38,8 +38,8 @@ fi
 ln -sfn "$REPO_DIR/commands/review-skills.md" "$CMD_DST"
 echo "✓ /review-skills command linked"
 
-ln -sfn "$REPO_DIR/commands/run-loop.md" "$CLAUDE_DIR/commands/run-loop.md"
-echo "✓ /run-loop command linked"
+ln -sfn "$REPO_DIR/commands/launch-skill-update.md" "$CLAUDE_DIR/commands/launch-skill-update.md"
+echo "✓ /launch-skill-update command linked"
 
 # ── 3. Install scheduled task ─────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 ---
-name: run-loop
+name: launch-skill-update
 description: Déclenche manuellement la routine refine-skills-loop. Scanne ~/.claude/skills/ pour le feedback en attente, améliore les SKILL.md, et crée une branche skill-updates.
 ---
 
