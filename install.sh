@@ -14,6 +14,12 @@ echo "skill-loop installer"
 echo "===================="
 echo ""
 
+# ── 0. Ensure ~/.claude/skills/ exists ───────────────────────────────────────
+
+mkdir -p "$SKILLS_DIR"
+mkdir -p "$CLAUDE_DIR/commands"
+mkdir -p "$CLAUDE_DIR/scheduled-tasks"
+
 # ── 1. Link refine-skills tool ────────────────────────────────────────────────
 
 if [ -e "$SKILLS_DIR/refine-skills" ] && [ ! -L "$SKILLS_DIR/refine-skills" ]; then
