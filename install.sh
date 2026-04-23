@@ -58,6 +58,20 @@ fi
 
 # ── 5. Setup skills git repo ──────────────────────────────────────────────────
 
+if [ -f "$CLAUDE_DIR/skill-loop-remote" ]; then
+  echo "✓ Skills repo already configured ($(cat "$CLAUDE_DIR/skill-loop-remote"))"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Done! skill-loop updated."
+  echo ""
+  echo "  /refine-skills         — collect feedback"
+  echo "  /launch-skill-update   — run the refine routine"
+  echo "  /review-skills         — validate and merge"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  exit 0
+fi
+
 echo ""
 echo "Your skills will be versioned in ~/.claude/skills/"
 echo "This lets you revert any skill at any time with git."
