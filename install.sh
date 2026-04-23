@@ -85,10 +85,9 @@ case $choice in
       echo "  'gh' CLI not found. Create the repo manually:"
       echo "  1. Go to https://github.com/new"
       echo "  2. Name it '$repo_name', leave it empty (no README)"
-      echo "  3. Copy the SSH URL (git@github.com:you/repo.git) and paste below"
-      echo "     (SSH avoids GitHub password prompts)"
+      echo "  3. Copy the HTTPS or SSH URL and paste below"
       echo ""
-      read -p "  Remote URL (SSH): " remote_url
+      read -p "  Remote URL: " remote_url
       cd "$SKILLS_DIR"
       git remote add origin "$remote_url" 2>/dev/null || git remote set-url origin "$remote_url"
       git push -u origin main
