@@ -8,111 +8,114 @@ description: >
 
 # Review Skills
 
-Tu es un assistant de review. L'utilisateur veut valider les mises à jour de skills proposées automatiquement.
+Tu es un assistant de review. L'utilisateur veut valider les mises à jour proposées par la routine.
 
-## Étape 1 — Localiser le repo skill-loop
+## Étape 1 — Vérifier les updates en attente
 
 ```bash
-SKILL_LOOP_REPO=$(cat ~/.claude/skill-loop-repo 2>/dev/null)
-if [ -z "$SKILL_LOOP_REPO" ]; then
-  echo "Erreur : ~/.claude/skill-loop-repo introuvable. Relancer ./install.sh"
-  exit 1
+REMOTE=$(cat ~/.claude/skill-loop-remote 2>/dev/null || echo "local")
+cd ~/.claude/skills
+
+if [ "$REMOTE" != "local" ]; then
+  git fetch origin
 fi
-cd "$SKILL_LOOP_REPO"
-git fetch origin
+
+git branch -r | grep skill-updates || git branch | grep skill-updates
 ```
 
-Vérifier si la branche `skill-updates` existe sur le remote :
-```bash
-git branch -r | grep skill-updates
-```
-
-Si elle n'existe pas : "Aucune mise à jour en attente. La prochaine exécution est planifiée automatiquement."
+Si la branche `skill-updates` n'existe pas : "Aucune mise à jour en attente."
 
 ## Étape 2 — Lister les skills modifiés
 
 ```bash
-git log origin/main..origin/skill-updates --oneline
+cd ~/.claude/skills
+# Remote
+git log origin/main..origin/skill-updates --oneline 2>/dev/null
+# ou local
+git log main..skill-updates --oneline 2>/dev/null
 ```
-
-Pour chaque commit, identifier le skill concerné (format : `refine(skill-name): ...`).
 
 ## Étape 3 — Présenter les reviews
 
-Pour chaque skill modifié :
+Pour chaque skill modifié, lire le `PENDING-REVIEW.md` :
+```bash
+# Remote
+git show origin/skill-updates:{nom}/PENDING-REVIEW.md
+# Local
+git show skill-updates:{nom}/PENDING-REVIEW.md
+```
 
-1. Lire le fichier `PENDING-REVIEW.md` sur la branche skill-updates :
-   ```bash
-   git show origin/skill-updates:skills/{nom}/PENDING-REVIEW.md
-   ```
+Si absent, afficher le diff :
+```bash
+git diff main..skill-updates -- {nom}/
+```
 
-2. Afficher clairement :
-   - Nom du skill
-   - Changements proposés (bullet points)
-   - Feedback intégré
-   - Diff avant/après (les extraits clés)
-
-3. Si `PENDING-REVIEW.md` n'existe pas :
-   ```bash
-   git diff origin/main..origin/skill-updates -- skills/{nom}/
-   ```
+Afficher pour chaque skill :
+- Changements proposés
+- Feedback intégré
+- Extraits avant/après
 
 ## Étape 4 — Demander validation
 
-Proposer :
-- **"Valider tout"** — Merge toute la branche skill-updates dans main
-- **"Valider un par un"** — Pour chaque skill, demander oui/non
-- **"Tout rejeter"** — Supprimer la branche skill-updates
+- **"Valider tout"** — merge skill-updates dans main
+- **"Valider un par un"** — oui/non par skill
+- **"Tout rejeter"** — supprimer la branche
 
 ### Si "Valider tout"
 
 ```bash
-cd "$SKILL_LOOP_REPO"
+cd ~/.claude/skills
 git checkout main
-git merge origin/skill-updates --no-ff -m "merge: skill updates validées"
+git merge skill-updates --no-ff -m "merge: skill updates validées"
 ```
 
-Pour chaque skill validé, reset le FEEDBACK.md dans `~/.claude/skills/{name}/` :
-- Archiver le contenu dans `~/.claude/skills/{name}/FEEDBACK-ARCHIVE.md`
-- Remplacer `~/.claude/skills/{name}/FEEDBACK.md` par :
-  ```
-  <!-- Feedback collecté par /refine-skills. Intégré périodiquement dans SKILL.md et GOTCHAS.md. -->
-  ```
-
-Supprimer les `PENDING-REVIEW.md` dans le repo.
-
-Commit final :
+Pour chaque skill validé, reset le FEEDBACK.md :
 ```bash
-cd "$SKILL_LOOP_REPO"
+# Archiver
+cat ~/.claude/skills/{name}/FEEDBACK.md >> ~/.claude/skills/{name}/FEEDBACK-ARCHIVE.md
+# Vider
+echo '<!-- Feedback collecté par /refine-skills. Intégré périodiquement dans SKILL.md et GOTCHAS.md. -->' \
+  > ~/.claude/skills/{name}/FEEDBACK.md
+```
+
+Supprimer les PENDING-REVIEW.md, commit final :
+```bash
+cd ~/.claude/skills
 git add .
 git commit -m "review: reset feedback après validation"
-git push origin main
-git push origin --delete skill-updates
+
+REMOTE=$(cat ~/.claude/skill-loop-remote 2>/dev/null || echo "local")
+if [ "$REMOTE" != "local" ]; then
+  git push origin main
+  git push origin --delete skill-updates
+else
+  git branch -D skill-updates
+fi
 ```
 
 ### Si "Valider un par un"
 
 Pour chaque skill :
-- Si oui → cherry-pick le commit correspondant sur main
-- Si non → skip
+- Oui → `git cherry-pick` le commit sur main
+- Non → skip
 
-Après tous les reviews :
-- Reset `~/.claude/skills/{name}/FEEDBACK.md` pour les skills validés
-- Supprimer les `PENDING-REVIEW.md` correspondants
-- Commit et push main
-- Supprimer la branche skill-updates
+Reset FEEDBACK.md des skills validés, commit + push/branch cleanup.
 
 ### Si "Tout rejeter"
 
 ```bash
-cd "$SKILL_LOOP_REPO"
-git push origin --delete skill-updates
+cd ~/.claude/skills
+REMOTE=$(cat ~/.claude/skill-loop-remote 2>/dev/null || echo "local")
+if [ "$REMOTE" != "local" ]; then
+  git push origin --delete skill-updates
+else
+  git branch -D skill-updates
+fi
 ```
 
 "Branche supprimée. Le feedback reste intact pour la prochaine itération."
 
 ## Règles
-
 - Toujours montrer le contenu AVANT de demander validation
 - Ne jamais modifier main sans validation explicite
-- Après validation, toujours push pour que le repo soit à jour
+- Après validation, toujours pousser (si remote configuré)

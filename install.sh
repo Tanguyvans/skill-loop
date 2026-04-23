@@ -1,67 +1,104 @@
 #!/bin/bash
-# skill-loop install script
-# Wires up refine-skills, review-skills, and the auto-refine routine into your Claude Code setup.
+# skill-loop install
+# Sets up refine-skills, review-skills, and the auto-refine routine.
+# Creates or connects a personal skills repo at ~/.claude/skills/.
 
 set -e
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
+SKILLS_DIR="$CLAUDE_DIR/skills"
 
 echo ""
 echo "skill-loop installer"
 echo "===================="
-echo "Repo: $REPO_DIR"
 echo ""
 
-# 1. Save repo path for commands/scheduled-tasks to reference
-echo "$REPO_DIR" > "$CLAUDE_DIR/skill-loop-repo"
-echo "✓ Saved repo path → ~/.claude/skill-loop-repo"
+# ── 1. Link refine-skills tool ────────────────────────────────────────────────
 
-# 2. Link refine-skills skill
-SKILL_DST="$CLAUDE_DIR/skills/refine-skills"
-if [ -e "$SKILL_DST" ] && [ ! -L "$SKILL_DST" ]; then
-  mv "$SKILL_DST" "$SKILL_DST.bak"
-  echo "  Backed up existing refine-skills → refine-skills.bak"
+if [ -e "$SKILLS_DIR/refine-skills" ] && [ ! -L "$SKILLS_DIR/refine-skills" ]; then
+  mv "$SKILLS_DIR/refine-skills" "$SKILLS_DIR/refine-skills.bak"
 fi
-ln -sfn "$REPO_DIR/skills/refine-skills" "$SKILL_DST"
-echo "✓ Linked skills/refine-skills → ~/.claude/skills/refine-skills"
+ln -sfn "$REPO_DIR/skills/refine-skills" "$SKILLS_DIR/refine-skills"
+echo "✓ /refine-skills skill linked"
 
-# 3. Link review-skills command
+# ── 2. Link review-skills command ─────────────────────────────────────────────
+
 mkdir -p "$CLAUDE_DIR/commands"
 CMD_DST="$CLAUDE_DIR/commands/review-skills.md"
 if [ -e "$CMD_DST" ] && [ ! -L "$CMD_DST" ]; then
   mv "$CMD_DST" "$CMD_DST.bak"
-  echo "  Backed up existing review-skills.md"
 fi
 ln -sfn "$REPO_DIR/commands/review-skills.md" "$CMD_DST"
-echo "✓ Linked commands/review-skills.md → ~/.claude/commands/review-skills.md"
+echo "✓ /review-skills command linked"
 
-# 4. Install scheduled task (copy, not symlink — path substitution needed)
-TASK_DST="$CLAUDE_DIR/scheduled-tasks/refine-skills-loop"
+# ── 3. Install scheduled task ─────────────────────────────────────────────────
+
 mkdir -p "$CLAUDE_DIR/scheduled-tasks"
+TASK_DST="$CLAUDE_DIR/scheduled-tasks/refine-skills-loop"
 rm -rf "$TASK_DST"
 cp -r "$REPO_DIR/scheduled-tasks/refine-skills-loop" "$TASK_DST"
-echo "✓ Installed scheduled-tasks/refine-skills-loop → ~/.claude/scheduled-tasks/refine-skills-loop"
+echo "✓ refine-skills-loop routine installed"
+
+# ── 4. Setup skills git repo ──────────────────────────────────────────────────
 
 echo ""
-echo "Done! Three components are now active:"
+echo "Your skills will be versioned in ~/.claude/skills/"
+echo "This lets you revert any skill at any time with git."
 echo ""
-echo "  /refine-skills     → collect feedback at end of sessions"
-echo "  /review-skills     → validate and merge skill updates"
-echo "  refine-skills-loop → auto-refine routine (needs scheduling, see below)"
+echo "Do you want to sync to GitHub? (recommended)"
+echo "  [1] Create a new GitHub repo"
+echo "  [2] Use an existing repo (fork or your own)"
+echo "  [3] Local only — git history, no push"
 echo ""
-echo "─────────────────────────────────────────────────────"
-echo "NEXT STEP — Schedule the auto-refine routine:"
+read -p "Choice [1/2/3]: " choice
+
+# Init git in ~/.claude/skills/ if not already a repo
+if [ ! -d "$SKILLS_DIR/.git" ]; then
+  cd "$SKILLS_DIR"
+  git init -b main
+  # Copy SKILL-GUIDELINES.md for the routine to use
+  cp "$REPO_DIR/SKILL-GUIDELINES.md" "$SKILLS_DIR/SKILL-GUIDELINES.md"
+  git add .
+  git commit -m "init: personal skills repo" 2>/dev/null || true
+  echo "✓ Git initialized in ~/.claude/skills/"
+fi
+
+cd "$SKILLS_DIR"
+
+case $choice in
+  1)
+    echo ""
+    read -p "Name for your new GitHub repo [my-skills]: " repo_name
+    repo_name="${repo_name:-my-skills}"
+    gh repo create "$repo_name" --public --source=. --remote=origin --push
+    echo "✓ Created and pushed to github.com/$(gh api user --jq .login)/$repo_name"
+    echo "origin" > "$CLAUDE_DIR/skill-loop-remote"
+    ;;
+  2)
+    echo ""
+    read -p "Remote URL (e.g. git@github.com:you/my-skills.git): " remote_url
+    git remote add origin "$remote_url" 2>/dev/null || git remote set-url origin "$remote_url"
+    git push -u origin main
+    echo "✓ Connected to $remote_url"
+    echo "origin" > "$CLAUDE_DIR/skill-loop-remote"
+    ;;
+  3)
+    echo "✓ Local only — git revert works, no push"
+    echo "local" > "$CLAUDE_DIR/skill-loop-remote"
+    ;;
+esac
+
 echo ""
-echo "  In a Claude Code session, run:"
-echo "  /schedule"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Done! Your skill-loop is ready."
 echo ""
-echo "  Then ask Claude to create a scheduled task named 'refine-skills-loop'"
-echo "  pointing to: ~/.claude/scheduled-tasks/refine-skills-loop/SKILL.md"
-echo "  Suggested frequency: daily or weekly"
-echo "─────────────────────────────────────────────────────"
+echo "  /refine-skills    — collect feedback at end of sessions"
+echo "  /review-skills    — validate and merge skill improvements"
+echo "  routine           — runs automatically (schedule it below)"
 echo ""
-echo "Also make sure this repo is connected to a GitHub remote:"
-echo "  git remote add origin git@github.com:YOUR_USER/skill-loop.git"
-echo "  git push -u origin main"
+echo "NEXT — Schedule the auto-refine routine:"
+echo "  In a Claude Code session, type /schedule"
+echo "  Ask Claude to schedule 'refine-skills-loop' weekly."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
