@@ -46,7 +46,14 @@ rm -rf "$TASK_DST"
 cp -r "$REPO_DIR/scheduled-tasks/refine-skills-loop" "$TASK_DST"
 echo "✓ refine-skills-loop routine installed"
 
-# ── 4. Setup skills git repo ──────────────────────────────────────────────────
+# ── 4. Copy hello-world demo skill into ~/.claude/skills/ ────────────────────
+
+if [ ! -d "$SKILLS_DIR/hello-world" ]; then
+  cp -r "$REPO_DIR/skills/hello-world" "$SKILLS_DIR/hello-world"
+  echo "✓ Demo skill hello-world copied to ~/.claude/skills/"
+fi
+
+# ── 5. Setup skills git repo ──────────────────────────────────────────────────
 
 echo ""
 echo "Your skills will be versioned in ~/.claude/skills/"
