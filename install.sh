@@ -77,8 +77,22 @@ case $choice in
     echo ""
     read -p "Name for your new GitHub repo [my-skills]: " repo_name
     repo_name="${repo_name:-my-skills}"
-    gh repo create "$repo_name" --public --source=. --remote=origin --push
-    echo "✓ Created and pushed to github.com/$(gh api user --jq .login)/$repo_name"
+    if command -v gh &>/dev/null; then
+      gh repo create "$repo_name" --public --source=. --remote=origin --push
+      echo "✓ Created and pushed to github.com/$(gh api user --jq .login)/$repo_name"
+    else
+      echo ""
+      echo "  'gh' CLI not found. Create the repo manually:"
+      echo "  1. Go to https://github.com/new"
+      echo "  2. Name it '$repo_name', leave it empty (no README)"
+      echo "  3. Copy the SSH or HTTPS URL and paste below"
+      echo ""
+      read -p "  Remote URL: " remote_url
+      cd "$SKILLS_DIR"
+      git remote add origin "$remote_url"
+      git push -u origin main
+      echo "✓ Connected and pushed to $remote_url"
+    fi
     echo "origin" > "$CLAUDE_DIR/skill-loop-remote"
     ;;
   2)
